@@ -253,13 +253,13 @@ app.all("/api/v1/categories*", (req, res) => {
 });
 
 // Cart Service routes
-app.all("/api/cart*", (req, res) => {
+app.all("/api/v1/cart*", (req, res) => {
   const targetPath = req.url.replace("/api/cart", "");
   return forwardRequest(req, res, CART_SERVICE, targetPath);
 });
 
 // Order Service routes
-app.all("/api/orders*", (req, res) => {
+app.all("/api/v1/orders*", (req, res) => {
   const targetPath = req.url.replace("/api/orders", "/api/v1/order");
   return forwardRequest(req, res, ORDER_SERVICE, targetPath);
 });
@@ -269,7 +269,7 @@ app.all("/api/v1/order*", (req, res) => {
 });
 
 // Review Service routes
-app.all("/api/reviews*", (req, res) => {
+app.all("/api/v1/reviews*", (req, res) => {
   const targetPath = req.url.replace("/api/reviews", "/api/v1/review");
   return forwardRequest(req, res, REVIEW_SERVICE, targetPath);
 });
