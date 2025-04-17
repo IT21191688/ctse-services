@@ -22,15 +22,16 @@ export async function getCart(userId: string): Promise<ICart> {
 
 export async function addToCart(
   userId: string,
-  dto: IAddToCartDto
+  dto: IAddToCartDto,
+  token: string
 ): Promise<ICart> {
   const { productId, quantity } = dto;
 
   // Validate product stock
-  await checkProductStock(productId, quantity);
+  await checkProductStock(productId, quantity, token);
 
   // Get product details
-  const product = await getProductDetails(productId);
+  const product = await getProductDetails(productId, token);
 
   // Find user's cart
   let cart: any = await Cart.findOne({ user: userId });
@@ -54,7 +55,7 @@ export async function addToCart(
     const newQuantity = cart.items[existingItemIndex].quantity + quantity;
 
     // Check if new quantity exceeds stock
-    await checkProductStock(productId, newQuantity);
+    await checkProductStock(productId, newQuantity, token);
 
     cart.items[existingItemIndex].quantity = newQuantity;
   } else {
@@ -75,7 +76,8 @@ export async function addToCart(
 
 export async function updateCartItem(
   userId: string,
-  dto: IUpdateCartItemDto
+  dto: IUpdateCartItemDto,
+  token: string
 ): Promise<ICart> {
   const { productId, quantity } = dto;
 
@@ -85,7 +87,7 @@ export async function updateCartItem(
   }
 
   // Validate product stock
-  await checkProductStock(productId, quantity);
+  await checkProductStock(productId, quantity, token);
 
   // Find user's cart
   const cart = await Cart.findOne({ user: userId });
@@ -110,6 +112,97 @@ export async function updateCartItem(
   await cart.save();
   return cart;
 }
+
+// export async function addToCart(
+//   userId: string,
+//   dto: IAddToCartDto
+// ): Promise<ICart> {
+//   const { productId, quantity } = dto;
+
+//   // Validate product stock
+//   await checkProductStock(productId, quantity);
+
+//   // Get product details
+//   const product = await getProductDetails(productId);
+
+//   // Find user's cart
+//   let cart: any = await Cart.findOne({ user: userId });
+
+//   // If no cart exists, create a new one
+//   if (!cart) {
+//     cart = new Cart({
+//       user: userId,
+//       items: [],
+//       totalPrice: 0,
+//     });
+//   }
+
+//   // Check if item already exists in cart
+//   const existingItemIndex = cart.items.findIndex(
+//     (item: any) => item.product.toString() === productId
+//   );
+
+//   if (existingItemIndex > -1) {
+//     // Update existing item quantity
+//     const newQuantity = cart.items[existingItemIndex].quantity + quantity;
+
+//     // Check if new quantity exceeds stock
+//     await checkProductStock(productId, newQuantity);
+
+//     cart.items[existingItemIndex].quantity = newQuantity;
+//   } else {
+//     // Add new item to cart
+//     cart.items.push({
+//       product: new mongoose.Types.ObjectId(productId),
+//       name: product.name,
+//       price: product.price,
+//       image: product.images[0] || "https://via.placeholder.com/150",
+//       quantity,
+//     });
+//   }
+
+//   // Save cart and return
+//   await cart.save();
+//   return cart;
+// }
+
+// export async function updateCartItem(
+//   userId: string,
+//   dto: IUpdateCartItemDto
+// ): Promise<ICart> {
+//   const { productId, quantity } = dto;
+
+//   // Validate quantity
+//   if (quantity <= 0) {
+//     throw new BadRequestError("Quantity must be greater than 0");
+//   }
+
+//   // Validate product stock
+//   await checkProductStock(productId, quantity);
+
+//   // Find user's cart
+//   const cart = await Cart.findOne({ user: userId });
+
+//   if (!cart) {
+//     throw new BadRequestError("Cart not found");
+//   }
+
+//   // Find the item in the cart
+//   const existingItemIndex = cart.items.findIndex(
+//     (item) => item.product.toString() === productId
+//   );
+
+//   if (existingItemIndex === -1) {
+//     throw new BadRequestError("Item not found in cart");
+//   }
+
+//   // Update item quantity
+//   cart.items[existingItemIndex].quantity = quantity;
+
+//   // Save cart and return
+//   await cart.save();
+//   return cart;
+// }
 
 export async function removeFromCart(
   userId: string,
