@@ -30,8 +30,8 @@ coverage/
 bower_components/
 
 # Environment variable files
-.env
-.env.*.local
+# .env
+# .env.*.local
 
 # Optional npm cache directory
 .npm/
