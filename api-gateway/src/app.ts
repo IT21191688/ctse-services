@@ -128,6 +128,101 @@ const forwardRequest = async (
 };
 
 // Handle multipart form data
+// const handleMultipartRequest = (
+//   req: Request,
+//   res: Response,
+//   targetService: string,
+//   targetPath: string
+// ) => {
+//   const multerMiddleware = upload.any();
+
+//   multerMiddleware(req, res, async (err) => {
+//     if (err) {
+//       console.error("Multer error:", err);
+//       return res
+//         .status(500)
+//         .json({ error: "File upload error", message: err.message });
+//     }
+
+//     try {
+//       const url = `${targetService}${targetPath}`;
+//       console.log("Forwarding multipart request to:", url);
+//       console.log("Form data fields:", req.body);
+//       console.log("Files:", req.files);
+
+//       const formData = new FormData();
+
+//       // Add form fields
+//       if (req.body) {
+//         Object.keys(req.body).forEach((key) => {
+//           formData.append(key, req.body[key]);
+//         });
+//       }
+
+//       // Add files
+//       if (Array.isArray(req.files)) {
+//         req.files.forEach((file) => {
+//           formData.append(file.fieldname, fs.createReadStream(file.path), {
+//             filename: file.originalname,
+//             contentType: file.mimetype,
+//           });
+//         });
+//       }
+
+//       // Send the request with axios
+//       const response = await axios({
+//         method: req.method,
+//         url: url,
+//         data: formData,
+//         headers: {
+//           ...formData.getHeaders(),
+//           ...(req.headers.authorization && {
+//             Authorization: req.headers.authorization,
+//           }),
+//         },
+//         maxContentLength: Infinity,
+//         maxBodyLength: Infinity,
+//         validateStatus: () => true,
+//       });
+
+//       // Clean up temporary files
+//       if (Array.isArray(req.files)) {
+//         for (const file of req.files) {
+//           try {
+//             fs.unlinkSync(file.path);
+//           } catch (error) {
+//             console.error(`Failed to delete temp file ${file.path}:`, error);
+//           }
+//         }
+//       }
+
+//       return res.status(response.status).json(response.data);
+//     } catch (error: any) {
+//       console.error("Error in multipart request:", error);
+
+//       // Clean up temporary files
+//       if (Array.isArray(req.files)) {
+//         for (const file of req.files) {
+//           try {
+//             fs.unlinkSync(file.path);
+//           } catch (error) {
+//             console.error(`Failed to delete temp file ${file.path}:`, error);
+//           }
+//         }
+//       }
+
+//       if (error.response) {
+//         return res.status(error.response.status).json(error.response.data);
+//       }
+
+//       return res.status(500).json({
+//         error: "Gateway Error",
+//         message: error.message || "Unknown error occurred",
+//       });
+//     }
+//   });
+// };
+// Modified handleMultipartRequest function
 const handleMultipartRequest = (
   req: Request,
   res: Response,
@@ -152,10 +247,32 @@ const handleMultipartRequest = (
 
       const formData = new FormData();
 
-      // Add form fields
+      // Add form fields (handling nested objects)
+      // More compatible handling of nested objects in multipart requests
       if (req.body) {
         Object.keys(req.body).forEach((key) => {
-          formData.append(key, req.body[key]);
+          // Special handling for the address field
+          if (key === "address" && typeof req.body[key] === "object") {
+            // For the address object, append each property individually
+            const address = req.body[key];
+            Object.keys(address).forEach((subKey) => {
+              formData.append(`${key}[${subKey}]`, address[subKey]);
+            });
+          }
+          // Handle other potential nested objects
+          else if (
+            typeof req.body[key] === "object" &&
+            req.body[key] !== null
+          ) {
+            // Flatten the object into individual fields
+            const obj = req.body[key];
+            Object.keys(obj).forEach((subKey) => {
+              formData.append(`${key}[${subKey}]`, obj[subKey]);
+            });
+          } else {
+            // Handle primitive values normally
+            formData.append(key, req.body[key]);
+          }
         });
       }
 
@@ -222,7 +339,6 @@ const handleMultipartRequest = (
     }
   });
 };
-
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "API Gateway is running" });
