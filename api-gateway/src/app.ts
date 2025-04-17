@@ -223,6 +223,164 @@ const forwardRequest = async (
 //   });
 // };
 // Modified handleMultipartRequest function
+// const handleMultipartRequest = (
+//   req: Request,
+//   res: Response,
+//   targetService: string,
+//   targetPath: string
+// ) => {
+//   const multerMiddleware = upload.any();
+
+//   multerMiddleware(req, res, async (err) => {
+//     if (err) {
+//       console.error("Multer error:", err);
+//       return res
+//         .status(500)
+//         .json({ error: "File upload error", message: err.message });
+//     }
+
+//     try {
+//       const url = `${targetService}${targetPath}`;
+//       console.log("Forwarding multipart request to:", url);
+//       console.log("Form data fields:", req.body);
+//       console.log("Files:", req.files);
+
+//       const formData = new FormData();
+
+//       // Add form fields (handling nested objects)
+//       // More compatible handling of nested objects in multipart requests
+//       // if (req.body) {
+//       //   Object.keys(req.body).forEach((key) => {
+//       //     // Special handling for the address field
+//       //     if (key === "address" && typeof req.body[key] === "object") {
+//       //       // For the address object, append each property individually
+//       //       const address = req.body[key];
+//       //       Object.keys(address).forEach((subKey) => {
+//       //         formData.append(`${key}[${subKey}]`, address[subKey]);
+//       //       });
+//       //     }
+//       //     // Handle other potential nested objects
+//       //     else if (
+//       //       typeof req.body[key] === "object" &&
+//       //       req.body[key] !== null
+//       //     ) {
+//       //       // Flatten the object into individual fields
+//       //       const obj = req.body[key];
+//       //       Object.keys(obj).forEach((subKey) => {
+//       //         formData.append(`${key}[${subKey}]`, obj[subKey]);
+//       //       });
+//       //     } else {
+//       //       // Handle primitive values normally
+//       //       formData.append(key, req.body[key]);
+//       //     }
+//       //   });
+//       // }
+//       if (req.body) {
+//         Object.keys(req.body).forEach((key) => {
+//           // Special handling for numeric fields
+//           if (key === "price" || key === "stock") {
+//             // Convert string to number
+//             formData.append(key, Number(req.body[key]));
+//           }
+//           // Special handling for subCategory field
+//           else if (key === "subCategory") {
+//             // Handle as array
+//             const subCategoryValue = req.body[key].includes(",")
+//               ? req.body[key].split(",").map((item: string) => item.trim())
+//               : [req.body[key]];
+
+//             // Append each array element
+//             subCategoryValue.forEach((value: string, index: number) => {
+//               formData.append(`${key}[${index}]`, value);
+//             });
+//           }
+//           // Special handling for the address field
+//           else if (key === "address" && typeof req.body[key] === "object") {
+//             // For the address object, append each property individually
+//             const address = req.body[key];
+//             Object.keys(address).forEach((subKey) => {
+//               formData.append(`${key}[${subKey}]`, address[subKey]);
+//             });
+//           }
+//           // Handle other potential nested objects
+//           else if (
+//             typeof req.body[key] === "object" &&
+//             req.body[key] !== null
+//           ) {
+//             // Flatten the object into individual fields
+//             const obj = req.body[key];
+//             Object.keys(obj).forEach((subKey) => {
+//               formData.append(`${key}[${subKey}]`, obj[subKey]);
+//             });
+//           } else {
+//             // Handle other primitive values normally
+//             formData.append(key, req.body[key]);
+//           }
+//         });
+//       }
+//       // Add files
+//       if (Array.isArray(req.files)) {
+//         req.files.forEach((file) => {
+//           formData.append(file.fieldname, fs.createReadStream(file.path), {
+//             filename: file.originalname,
+//             contentType: file.mimetype,
+//           });
+//         });
+//       }
+
+//       // Send the request with axios
+//       const response = await axios({
+//         method: req.method,
+//         url: url,
+//         data: formData,
+//         headers: {
+//           ...formData.getHeaders(),
+//           ...(req.headers.authorization && {
+//             Authorization: req.headers.authorization,
+//           }),
+//         },
+//         maxContentLength: Infinity,
+//         maxBodyLength: Infinity,
+//         validateStatus: () => true,
+//       });
+
+//       // Clean up temporary files
+//       if (Array.isArray(req.files)) {
+//         for (const file of req.files) {
+//           try {
+//             fs.unlinkSync(file.path);
+//           } catch (error) {
+//             console.error(`Failed to delete temp file ${file.path}:`, error);
+//           }
+//         }
+//       }
+
+//       return res.status(response.status).json(response.data);
+//     } catch (error: any) {
+//       console.error("Error in multipart request:", error);
+
+//       // Clean up temporary files
+//       if (Array.isArray(req.files)) {
+//         for (const file of req.files) {
+//           try {
+//             fs.unlinkSync(file.path);
+//           } catch (error) {
+//             console.error(`Failed to delete temp file ${file.path}:`, error);
+//           }
+//         }
+//       }
+
+//       if (error.response) {
+//         return res.status(error.response.status).json(error.response.data);
+//       }
+
+//       return res.status(500).json({
+//         error: "Gateway Error",
+//         message: error.message || "Unknown error occurred",
+//       });
+//     }
+//   });
+// };
 const handleMultipartRequest = (
   req: Request,
   res: Response,
@@ -245,32 +403,116 @@ const handleMultipartRequest = (
       console.log("Form data fields:", req.body);
       console.log("Files:", req.files);
 
+      // Check if this is a product creation/update request
+      const isProductRequest =
+        targetPath.includes("/api/v1/products") ||
+        targetPath.includes("/api/v1/product");
+
+      // For product endpoints, create properly typed JSON data
+      if (isProductRequest && req.body) {
+        // Create request body with proper types
+        const typedBody: any = {};
+
+        Object.keys(req.body).forEach((key) => {
+          if (key === "price" || key === "stock") {
+            // Convert to numbers
+            typedBody[key] = Number(req.body[key]);
+          } else if (key === "subCategory") {
+            // Handle as array
+            typedBody[key] = req.body[key].includes(",")
+              ? req.body[key].split(",").map((item: string) => item.trim())
+              : [req.body[key]];
+          } else {
+            // Keep other fields as they are
+            typedBody[key] = req.body[key];
+          }
+        });
+
+        // If there are files, add a FormData and include both files and typed body
+        if (Array.isArray(req.files) && req.files.length > 0) {
+          const formData = new FormData();
+
+          // Add properly typed JSON data as a string field
+          formData.append("data", JSON.stringify(typedBody));
+
+          // Add files
+          req.files.forEach((file) => {
+            formData.append(file.fieldname, fs.createReadStream(file.path), {
+              filename: file.originalname,
+              contentType: file.mimetype,
+            });
+          });
+
+          // Send the request with axios
+          const response = await axios({
+            method: req.method,
+            url: url,
+            data: formData,
+            headers: {
+              ...formData.getHeaders(),
+              ...(req.headers.authorization && {
+                Authorization: req.headers.authorization,
+              }),
+            },
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            validateStatus: () => true,
+          });
+
+          // Clean up temporary files
+          if (Array.isArray(req.files)) {
+            for (const file of req.files) {
+              try {
+                fs.unlinkSync(file.path);
+              } catch (error) {
+                console.error(
+                  `Failed to delete temp file ${file.path}:`,
+                  error
+                );
+              }
+            }
+          }
+
+          return res.status(response.status).json(response.data);
+        } else {
+          // No files, just send JSON data
+          const response = await axios({
+            method: req.method,
+            url: url,
+            data: typedBody,
+            headers: {
+              "Content-Type": "application/json",
+              ...(req.headers.authorization && {
+                Authorization: req.headers.authorization,
+              }),
+            },
+            validateStatus: () => true,
+          });
+
+          return res.status(response.status).json(response.data);
+        }
+      }
+
+      // For non-product endpoints, continue with the regular form data approach
       const formData = new FormData();
 
-      // Add form fields (handling nested objects)
-      // More compatible handling of nested objects in multipart requests
+      // Add form fields
       if (req.body) {
         Object.keys(req.body).forEach((key) => {
-          // Special handling for the address field
           if (key === "address" && typeof req.body[key] === "object") {
-            // For the address object, append each property individually
             const address = req.body[key];
             Object.keys(address).forEach((subKey) => {
               formData.append(`${key}[${subKey}]`, address[subKey]);
             });
-          }
-          // Handle other potential nested objects
-          else if (
+          } else if (
             typeof req.body[key] === "object" &&
             req.body[key] !== null
           ) {
-            // Flatten the object into individual fields
             const obj = req.body[key];
             Object.keys(obj).forEach((subKey) => {
               formData.append(`${key}[${subKey}]`, obj[subKey]);
             });
           } else {
-            // Handle primitive values normally
             formData.append(key, req.body[key]);
           }
         });
